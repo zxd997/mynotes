@@ -768,3 +768,270 @@ docker run -p 8083:8080 --name springboot-test-app01 springboot-test01
 
 #问题：只有linux可以访问，外网主机都不行？没有读取到application.xml的端口，而是默认启用了8080
 ```
+
+## Docker compose
+
+### 安装与授权
+
+```shell
+#下载
+[root@zxd997 bin]# curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.5/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   423  100   423    0     0    372      0  0:00:01  0:00:01 --:--:--   372
+100 16.7M  100 16.7M    0     0   9.8M      0  0:00:01  0:00:01 --:--:-- 30.8M
+#授权
+[root@zxd997 bin]# sudo chmod +x /usr/local/bin/docker-compose
+[root@zxd997 bin]# docker-compose --version
+docker-compose version 1.25.5, build 8a1c60f6
+```
+
+### 体验
+
+```shell
+$ mkdir compose-test
+$ cd compose-test
+$ vim app.py
+$ vim requirements.txt
+$ vim Dockerfile
+$ vim docker-compose.yml
+```
+
+app.py
+
+```python
+import time
+import redis
+from flask import Flask
+
+app = Flask(__name__)
+cache = redis.Redis(host='redis', port=6379)
+
+
+def get_hit_count():
+    retries = 5
+    while True:
+        try:
+            return cache.incr('hits')
+        except redis.exceptions.ConnectionError as exc:
+            if retries == 0:
+                raise exc
+            retries -= 1
+            time.sleep(0.5)
+
+
+@app.route('/')
+def hello():
+    count = get_hit_count()
+    return 'Hello World! I have been seen {} times.\n'.format(count)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0",debug=True)
+```
+
+requirements.txt
+
+```tex
+flask
+redis
+```
+
+Dockerfile
+
+```tex
+FROM python:3.7-alpine
+ADD . /code
+WORKDIR /code
+RUN pip install -r requirements.txt
+CMD ["python", "app.py"]
+```
+
+docker-compose.yml
+
+```yaml
+version: '3'
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+  redis:
+    image: "redis:alpine"
+```
+
+docker-compose up 启动
+
+docker-compose down停止
+
+### 编写一个博客
+
+```sh
+$ mkdir /home/my-wordpress
+$ cd  my-wordpress
+$ vim docker-compose.yml
+```
+
+```yaml
+version: '3.3'
+
+services:
+   db:
+     image: mysql:5.7
+     #可以加个端口映射能从外部访问数据库
+     #ports:
+       #- "3306:3306"
+     volumes:
+       - db_data:/var/lib/mysql
+     restart: always
+     environment:
+       MYSQL_ROOT_PASSWORD: somewordpress
+       MYSQL_DATABASE: wordpress
+       MYSQL_USER: wordpress
+       MYSQL_PASSWORD: wordpress
+
+   wordpress:
+     depends_on:
+       - db
+     image: wordpress:latest
+     ports:
+       - "8000:80"
+     restart: always
+     environment:
+       WORDPRESS_DB_HOST: db:3306
+       WORDPRESS_DB_USER: wordpress
+       WORDPRESS_DB_PASSWORD: wordpress
+       WORDPRESS_DB_NAME: wordpress
+volumes:
+    db_data: {}
+```
+
+启动就ok~
+
+### docker-compose启动微服务项目
+
+创建一个springboot项目，使用web，redis
+
+```shell
+$ mkdir my-test-springboot
+$ cd my-test-springboot
+#拷贝三个文件
+[root@zxd997 my-test-springboot]# ls
+demo-0.0.1-SNAPSHOT.jar  docker-compose.yml  Dockerfile
+```
+
+```java
+@RestController
+public class TestController {
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+    @GetMapping("/get")
+    public String get(){
+        Long count = stringRedisTemplate.opsForValue().increment("count", 1);
+        return "hello,nihao~,no."+count;
+    }
+}
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.3.3.RELEASE</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.example</groupId>
+    <artifactId>demo</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>demo</name>
+    <description>Demo project for Spring Boot</description>
+
+    <properties>
+        <java.version>1.8</java.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+```
+
+
+
+```properties
+#application.properties
+server.port=8080
+spring.redis.host=redis
+
+#Dockerfile
+FROM java:8
+COPY *.jar /app.jar
+CMD ["--server.port=8080"]
+EXPOSE 8080
+ENTRYPOINT ["java","-jar","/app.jar"]
+```
+
+```yaml
+#docker-compose.yml
+version: '3.8'
+services: 
+  kuangapp:
+    build: .
+    image: kuangapp
+    depends_on:
+      - redis
+    ports:
+      - "8080:8080"
+  redis:
+    image: "library/redis:alpine"
+```
+
+docker-compose up 启动
+
+如果项目重新部署打包
+
+```shell
+docker-compose up --build
+#-d 后台启动
+docker-compose up --build -d
+```
+
+
+
+## Docker swarm
+
+集群
+
