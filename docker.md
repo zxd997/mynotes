@@ -234,7 +234,7 @@ docker inspect containerid
 - 从容器内拷贝文件到主机上
 
 ```shell
-docker cp containerid:/home/test.java /home #容器可以没有运行中。
+docker cp containerid:/home/test.java /home/ #容器可以没有运行中。
 ```
 
 - 查看内存状态
@@ -276,6 +276,9 @@ docker run -it -v /home/ceshi:/home centos /bin/bash
 ```shell
 #测试：安装mysql
 docker run --name mysql01 -p 3310:3306 -v /home/mysql/conf:/etc/mysql/conf.d -v /home/mysql/data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=root -d mysql:5.7
+#挂载启动nginx
+docker run --name my-nginx -p 3344:80 -v /home/docker-nginx/nginx.conf:/etc/nginx/nginx.conf -v /home/docker-nginx/log:/var/log/nginx -v /home/docker-nginx/conf.d/default.conf:/etc/nginx/con f.d/default.conf -v /home/docker-nginx/html:/usr/share/nginx/html -d nginx
+#需要提前准备好nginx.conf、default.conf
 ```
 
 - 匿名挂载：在默认路径下创建一串英文作为容器挂载路径
