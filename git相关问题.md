@@ -12,4 +12,4 @@ vi ~/.gitconfig
 
 git config --global --unset http.proxy
 git config --global --unset https.proxy
-一切都会好起来的。。。。。
+一切都会好起来的。。。。。1
